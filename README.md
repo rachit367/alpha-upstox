@@ -66,7 +66,28 @@ tele-signal-automation/
 
 ## ⚙️ Setup & Installation
 
-### 1. Clone & install
+### 1. Prerequisites (Setup from Scratch)
+
+Before running the application, you need to obtain API credentials from three services:
+
+**A. Telegram API Keys**
+1. Go to [my.telegram.org](https://my.telegram.org/) and log in with your phone number.
+2. Click on **API development tools**.
+3. Create a new application (app name and short name can be anything).
+4. Save the **App api_id** and **App api_hash**.
+
+**B. LLM API Key (OpenRouter / OpenAI)**
+1. Go to [openrouter.ai](https://openrouter.ai/) or [platform.openai.com](https://platform.openai.com/).
+2. Create an account, navigate to API Keys, and generate a new key.
+3. Ensure your account is funded with credits.
+
+**C. Upstox API Credentials**
+1. Log in to the [Upstox Developer Console](https://developer.upstox.com/developer/login).
+2. Create a new App (ensure it has trading capabilities enabled).
+3. Save the **API Key** and **API Secret**.
+4. Generate an **Access Token** following the Upstox OAuth flow.
+
+### 2. Clone & install
 
 ```bash
 git clone <your-repo>
@@ -74,7 +95,7 @@ cd tele-signal-automation
 npm install
 ```
 
-### 2. Configure environment
+### 3. Configure environment
 
 ```bash
 cp .env.example .env
@@ -99,7 +120,7 @@ Edit `.env` and fill in all the required values:
 | `UPSTOX_API_SECRET` | From Upstox developer console |
 | `UPSTOX_ACCESS_TOKEN` | From Upstox developer console |
 
-### 3. First-time Telegram login
+### 4. First-time Telegram login
 
 Ensure you have set `TELEGRAM_PHONE_NUMBER` in your `.env`. 
 On the first run, the bot will read your number and immediately request an OTP from Telegram. You will only be prompted for:
@@ -108,7 +129,7 @@ On the first run, the bot will read your number and immediately request an OTP f
 
 After a successful login, it will print a `TELEGRAM_SESSION_STRING`. Copy that string into your `.env` to bypass login entirely on future restarts.
 
-### 4. Run
+### 5. Run
 
 ```bash
 # Development (auto-restart on changes)
