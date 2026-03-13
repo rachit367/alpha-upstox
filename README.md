@@ -50,7 +50,7 @@ tele-signal-automation/
     ├── telegram/
     │   └── telegramClient.js      # GramJS client — fetch group messages
     ├── llm/
-    │   ├── llmClient.js           # OpenRouter / OpenAI dual-provider
+    │   ├── llmClient.js           # dual-provider with OpenRouter fallback
     │   └── signalParser.js        # Validate + parse LLM JSON output
     ├── trading/
     │   ├── upstoxClient.js        # Upstox v2 API wrapper
@@ -91,7 +91,12 @@ Edit `.env` and fill in all the required values:
 | `TELEGRAM_GROUP_ID` | Group username or numeric ID (e.g. `-1001234567890`) |
 | `LLM_PROVIDER` | `openrouter` or `openai` |
 | `OPENROUTER_API_KEY` | From [openrouter.ai](https://openrouter.ai) |
+| `OPENROUTER_MODEL` | Primary model for OpenRouter (e.g. `openai/gpt-4o`) |
+| `OPENROUTER_FALLBACK_MODEL` | Fallback model if primary fails (e.g. `google/gemini-2.5-flash`) |
 | `OPENAI_API_KEY` | From [platform.openai.com](https://platform.openai.com) |
+| `OPENAI_MODEL` | Model for OpenAI (e.g. `gpt-4o`) |
+| `UPSTOX_API_KEY` | From Upstox developer console |
+| `UPSTOX_API_SECRET` | From Upstox developer console |
 | `UPSTOX_ACCESS_TOKEN` | From Upstox developer console |
 
 ### 3. First-time Telegram login
