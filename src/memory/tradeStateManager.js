@@ -2,9 +2,15 @@
 
 /**
  * tradeStateManager.js
- * In-memory store for all active trades, pending orders, and daily stats.
- * All state is lost on restart — use a DB for persistence in production.
+ * Store for all active trades, pending orders, and daily stats.
+ * Uses a local JSON file to persist state across restarts.
  */
+
+const fs = require('fs');
+const path = require('path');
+const logger = require('../utils/logger');
+
+const STATE_FILE = path.join(__dirname, '../../data', 'state.json');
 
 class TradeStateManager {
   constructor() {
@@ -13,15 +19,65 @@ class TradeStateManager {
     this._tradesToday = 0;
     this._dailyPnL = 0;
     this._startedAt = new Date().toDateString();
+    
+    this._loadState();
+  }
+
+  // ── Persistence ─────────────────────────────────────────────
+  
+  _loadState() {
+    try {
+      if (fs.existsSync(STATE_FILE)) {
+        const data = fs.readFileSync(STATE_FILE, 'utf8');
+        const parsed = JSON.parse(data);
+        
+        this._activeTrades = parsed.activeTrades || {};
+        this._pendingOrders = parsed.pendingOrders || {};
+        this._tradesToday = parsed.tradesToday || 0;
+        this._dailyPnL = parsed.dailyPnL || 0;
+        this._startedAt = parsed.startedAt || new Date().toDateString();
+        
+        // Ensure day reset runs on load if dates mismatch
+        this._checkDayReset();
+        
+        logger.info(`[TradeState] Loaded state from disk. Active trades: ${Object.keys(this._activeTrades).length}`);
+      }
+    } catch (err) {
+      logger.error(`[TradeState] Failed to load state: ${err.message}`);
+    }
+  }
+
+  _saveState() {
+    try {
+      const state = {
+        activeTrades: this._activeTrades,
+        pendingOrders: this._pendingOrders,
+        tradesToday: this._tradesToday,
+        dailyPnL: this._dailyPnL,
+        startedAt: this._startedAt,
+      };
+      
+      // Ensure directory exists
+      const dir = path.dirname(STATE_FILE);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), 'utf8');
+    } catch (err) {
+      logger.error(`[TradeState] Failed to save state to disk: ${err.message}`);
+    }
   }
 
   // ── Daily Reset ─────────────────────────────────────────────
+  
   _checkDayReset() {
     const today = new Date().toDateString();
     if (today !== this._startedAt) {
       this._tradesToday = 0;
       this._dailyPnL = 0;
       this._startedAt = today;
+      this._saveState();
     }
   }
 
@@ -39,6 +95,7 @@ class TradeStateManager {
       status: 'OPEN',
     };
     this._tradesToday++;
+    this._saveState();
     return this._activeTrades[tradeKey];
   }
 
@@ -73,6 +130,7 @@ class TradeStateManager {
       ...updates,
       updatedAt: new Date().toISOString(),
     };
+    this._saveState();
     return this._activeTrades[tradeKey];
   }
 
@@ -102,6 +160,7 @@ class TradeStateManager {
     };
 
     delete this._activeTrades[tradeKey];
+    this._saveState();
 
     return closed;
   }
@@ -113,6 +172,7 @@ class TradeStateManager {
       ...order,
       createdAt: new Date().toISOString(),
     };
+    this._saveState();
   }
 
   getPendingOrder(orderId) {
@@ -122,6 +182,7 @@ class TradeStateManager {
   removePendingOrder(orderId) {
     const order = this._pendingOrders[orderId];
     delete this._pendingOrders[orderId];
+    this._saveState();
     return order;
   }
 

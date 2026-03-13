@@ -92,8 +92,8 @@ async function runPipeline() {
 }
 
 /**
- * Starts the scheduled cron job based on TELEGRAM_FETCH_INTERVAL config.
- * Default: every 60 seconds.
+ * Starts the scheduled cron job.
+ * Default: every 1 minute.
  */
 function startCronJobs() {
   const intervalSeconds = config.TELEGRAM_FETCH_INTERVAL || 60;

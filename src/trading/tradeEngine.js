@@ -65,11 +65,32 @@ async function executeSignal(signal) {
   }
 }
 
+// ── Helpers ───────────────────────────────────────────────────
+
+/**
+ * Returns the lot size for a given symbol/index.
+ * (Adjust values according to current NSE rules).
+ */
+function getLotSize(symbol) {
+  const sym = (symbol || '').toUpperCase().trim();
+  if (sym.includes('NIFTY') && !sym.includes('BANKNIFTY')) return 50;
+  if (sym.includes('BANKNIFTY')) return 15;
+  if (sym.includes('FINNIFTY')) return 40;
+  if (sym.includes('MIDCPNIFTY')) return 75;
+  if (sym.includes('SENSEX')) return 10;
+  
+  // Default to config quantity for unknown indices or equity
+  return config.TRADE_QUANTITY_PER_LOT;
+}
+
 // ── Handlers ──────────────────────────────────────────────────
 
 async function handleNewTrade(signal, tradeKey) {
   const instrumentToken = upstox.buildInstrumentToken(signal);
-  const quantity = config.TRADE_QUANTITY;
+  const lotSize = getLotSize(signal.symbol);
+  
+  // Quantity is determined by: Configured Lots * Lot Size
+  const quantity = config.TRADE_LOTS * lotSize;
 
   const orderResult = await upstox.placeOrder({
     instrumentToken,

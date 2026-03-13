@@ -9,6 +9,8 @@ const logger = require('../utils/logger');
 let client = null;
 let messageHistory = [];
 const MAX_HISTORY = 50; // keep last 50 messages in memory
+const processedMsgMap = new Map();
+let isFirstFetch = true;
 
 /**
  * Initializes and connects the Telegram client.
@@ -66,9 +68,32 @@ async function fetchLatestMessages(limit = 20) {
       }))
       .reverse(); // oldest first
 
-    // Update in-memory history deduplicating by message id
-    const existingIds = new Set(messageHistory.map((m) => m.id));
-    const newMessages = parsed.filter((m) => !existingIds.has(m.id));
+    // On the very first fetch after startup, we just populate the map and history
+    // so we don't re-process old messages.
+    if (isFirstFetch) {
+      isFirstFetch = false;
+      parsed.forEach((m) => processedMsgMap.set(m.id, true));
+      messageHistory = parsed.slice(-MAX_HISTORY);
+      
+      logger.info(`[Telegram] Initial fetch completed. Loaded ${parsed.length} messages into history. Skipping processing of old messages.`);
+      
+      return {
+        newMessages: [],
+        allMessages: messageHistory,
+      };
+    }
+
+    // Filter out messages we've already seen
+    const newMessages = parsed.filter((m) => !processedMsgMap.has(m.id));
+
+    // Mark new messages as processed
+    newMessages.forEach((m) => processedMsgMap.set(m.id, true));
+
+    // Prevent memory leaks in map if it grows too large
+    if (processedMsgMap.size > 1000) {
+      const keysToDelete = Array.from(processedMsgMap.keys()).slice(0, 100);
+      keysToDelete.forEach((key) => processedMsgMap.delete(key));
+    }
 
     messageHistory = [...messageHistory, ...newMessages].slice(-MAX_HISTORY);
 

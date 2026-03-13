@@ -49,7 +49,4 @@ const config = {
   ENABLE_TARGETS: process.env.ENABLE_TARGETS !== 'false',
 };
 
-// ── Derived ───────────────────────────────────────────────────
-config.TRADE_QUANTITY = config.TRADE_LOTS * config.TRADE_QUANTITY_PER_LOT;
-
 module.exports = config;
