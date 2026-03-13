@@ -135,12 +135,41 @@ class TradeStateManager {
   }
 
   /**
+   * Updates the live price for all active trades matching the symbol/token.
+   * @param {string} instrumentToken 
+   * @param {number} ltp 
+   */
+  updateLivePrice(instrumentToken, ltp) {
+    let updated = false;
+
+    for (const tradeKey in this._activeTrades) {
+      const trade = this._activeTrades[tradeKey];
+      
+      if (trade.instrumentToken === instrumentToken) {
+        trade.liveLTP = ltp;
+        
+        // Recalculate floating PnL
+        const qty = trade.quantity || 1;
+        const multiplier = trade.direction === 'BUY' ? 1 : -1;
+        trade.livePnL = (ltp - trade.entry_price) * qty * multiplier;
+        
+        trade.lastPriceUpdate = new Date().toISOString();
+        updated = true;
+      }
+    }
+
+    // We don't save to disk on EVERY price tick (too many writes), 
+    // but the in-memory state remains fresh.
+    return updated;
+  }
+
+  /**
    * Closes a trade and realises PnL.
    * @param {string} tradeKey
    * @param {number} exitPrice
    * @param {string} exitReason
    */
-  closeTrade(tradeKey, exitPrice, exitReason = 'MANUAL') {
+  async closeTrade(tradeKey, exitPrice, exitReason = 'MANUAL') {
     const trade = this._activeTrades[tradeKey];
     if (!trade) return null;
 
@@ -161,6 +190,14 @@ class TradeStateManager {
 
     delete this._activeTrades[tradeKey];
     this._saveState();
+
+    // Persist to MongoDB Journal (Fire and forget or await)
+    try {
+      const { saveTrade } = require('../trading/journalManager');
+      saveTrade(closed).catch(err => logger.error(`[TradeState] Async journal save failed: ${err.message}`));
+    } catch (err) {
+      logger.error(`[TradeState] Journaling module error: ${err.message}`);
+    }
 
     return closed;
   }
@@ -202,11 +239,16 @@ class TradeStateManager {
   }
 
   getSnapshot() {
+    const activeTrades = this.getActiveTrades();
+    const livePnL = activeTrades.reduce((sum, t) => sum + (t.livePnL || 0), 0);
+
     return {
-      activeTrades: this.getActiveTrades(),
+      activeTrades,
       pendingOrders: this.getPendingOrders(),
       tradesToday: this._tradesToday,
-      dailyPnL: this._dailyPnL,
+      realizedPnL: this._dailyPnL,
+      unrealizedPnL: livePnL,
+      totalPnL: this._dailyPnL + livePnL,
     };
   }
 }

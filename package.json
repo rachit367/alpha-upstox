@@ -11,11 +11,14 @@
     "axios": "^1.7.2",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "node-cron": "^3.0.3",
-    "telegram": "^2.26.22",
     "input": "^1.0.1",
+    "mongoose": "^9.3.0",
+    "node-cron": "^3.0.3",
+    "openai": "^4.52.7",
+    "protobufjs": "^7.3.2",
+    "telegram": "^2.26.22",
     "winston": "^3.13.0",
-    "openai": "^4.52.7"
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"

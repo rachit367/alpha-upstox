@@ -137,6 +137,27 @@ function validateModification(tradeKey, signal) {
 }
 
 /**
+ * Checks if the combined real-time loss (realized + unrealized)
+ * has breached the daily limit.
+ * 
+ * @returns {{ breach: boolean, totalPnL: number, limit: number }}
+ */
+function checkLiveHardStop() {
+  const snapshot = tradeStateManager.getSnapshot();
+  const limit = -Math.abs(config.MAX_DAILY_LOSS);
+
+  if (snapshot.totalPnL <= limit) {
+    return {
+      breach: true,
+      totalPnL: snapshot.totalPnL,
+      limit,
+    };
+  }
+
+  return { breach: false, totalPnL: snapshot.totalPnL, limit };
+}
+
+/**
  * General risk gate — dispatches to the right validator based on action.
  * @param {object} signal
  * @param {string} tradeKey
@@ -165,4 +186,5 @@ module.exports = {
   checkRisk,
   validateNewTrade,
   validateModification,
+  checkLiveHardStop,
 };

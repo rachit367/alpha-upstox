@@ -6,6 +6,7 @@ const { tradeStateManager } = require('../memory/tradeStateManager');
 const { checkRisk } = require('./riskManager');
 const { generateTradeKey } = require('../llm/signalParser');
 const upstox = require('./upstoxClient');
+const instrumentManager = require('./instrumentManager');
 
 /**
  * tradeEngine.js
@@ -67,29 +68,25 @@ async function executeSignal(signal) {
 
 // ── Helpers ───────────────────────────────────────────────────
 
-/**
- * Returns the lot size for a given symbol/index.
- * (Adjust values according to current NSE rules).
- */
-function getLotSize(symbol) {
-  const sym = (symbol || '').toUpperCase().trim();
-  if (sym.includes('NIFTY') && !sym.includes('BANKNIFTY')) return 50;
-  if (sym.includes('BANKNIFTY')) return 15;
-  if (sym.includes('FINNIFTY')) return 40;
-  if (sym.includes('MIDCPNIFTY')) return 75;
-  if (sym.includes('SENSEX')) return 10;
-  
-  // Default to config quantity for unknown indices or equity
-  return config.TRADE_QUANTITY_PER_LOT;
-}
 
 // ── Handlers ──────────────────────────────────────────────────
 
 async function handleNewTrade(signal, tradeKey) {
-  const instrumentToken = upstox.buildInstrumentToken(signal);
-  const lotSize = getLotSize(signal.symbol);
+  // Dynamic lookup from MongoDB
+  const inst = await instrumentManager.findInstrument({
+    symbol: signal.symbol,
+    strike: signal.strike_price,
+    type: signal.option_type
+  });
+
+  if (!inst) {
+    throw new Error(`Instrument not found in Master Data for ${signal.symbol}`);
+  }
+
+  const instrumentToken = inst.instrument_key;
+  const lotSize = inst.lot_size;
   
-  // Quantity is determined by: Configured Lots * Lot Size
+  // Quantity is determined by: Configured Lots * Master Lot Size
   const quantity = config.TRADE_LOTS * lotSize;
 
   const orderResult = await upstox.placeOrder({
@@ -140,6 +137,11 @@ async function handleNewTrade(signal, tradeKey) {
   }
 
   logger.info(`[TradeEngine] ✅ NEW_TRADE opened → ${tradeKey} | orderId: ${orderId}`);
+
+  // Trigger live price feed for the new instrument
+  const { subscribeToActiveTrades } = require('./marketDataManager');
+  subscribeToActiveTrades();
+
   return { success: true, tradeKey, orderId, trade };
 }
 
@@ -153,7 +155,7 @@ async function handleExitPosition(signal, tradeKey, reason) {
   const orderResult = await upstox.exitPosition(trade);
   const orderId = orderResult?.data?.order_id;
 
-  const closedTrade = tradeStateManager.closeTrade(tradeKey, signal.entry_price || trade.entry_price, reason);
+  const closedTrade = await tradeStateManager.closeTrade(tradeKey, signal.entry_price || trade.entry_price, reason);
 
   logger.info(`[TradeEngine] ✅ ${reason} → ${tradeKey} | PnL: ₹${closedTrade?.pnl?.toFixed(2)}`);
   return { success: true, tradeKey, orderId, closedTrade };
@@ -259,4 +261,4 @@ async function handleCancelPending(signal) {
   return { success: true, cancelledOrderId: target.orderId };
 }
 
-module.exports = { executeSignal };
+module.exports = { executeSignal, handleExitPosition };

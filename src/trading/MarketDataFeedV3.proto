@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package com.upstox.marketdata.v3;
+
+message MarketDataFeedV3 {
+    enum Status {
+        SUCCESS = 0;
+        ERROR = 1;
+    }
+
+    message FullFeed {
+        message MarketLevelData {
+            message Quote {
+                double ltp = 1;
+                double close = 2;
+                double change = 3;
+                double change_percent = 4;
+                uint64 volume = 5;
+                uint64 open_interest = 6;
+                double last_trade_time = 7;
+            }
+            Quote quote = 1;
+        }
+        map<string, MarketLevelData> ltp = 1;
+    }
+
+    Status status = 1;
+    FullFeed data = 2;
+}

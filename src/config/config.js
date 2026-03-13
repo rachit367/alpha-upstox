@@ -11,6 +11,7 @@ const config = {
   // ── Server ─────────────────────────────────────────────────
   PORT: parseInt(process.env.PORT, 10) || 3000,
   NODE_ENV: process.env.NODE_ENV || 'development',
+  MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/alphabot',
 
   // ── Telegram ───────────────────────────────────────────────
   TELEGRAM_API_ID: parseInt(process.env.TELEGRAM_API_ID, 10),

@@ -65,38 +65,6 @@ const hftClient = makeClient(UPSTOX_HFT_BASE);
 const stdClient = makeClient(UPSTOX_STD_BASE);
 
 // ─────────────────────────────────────────────────────────────
-// INSTRUMENT TOKEN BUILDER
-// Upstox instrument tokens: "EXCHANGE|NUMERIC_KEY"
-// The numeric key must be looked up from the instrument master CSV.
-// These helpers build a best-effort token; override with the
-// real key once you download the master CSV from:
-// https://assets.upstox.com/market-quote/instruments/exchange/NSE.csv.gz
-// ─────────────────────────────────────────────────────────────
-
-/**
- * Builds an Upstox instrument token string from a signal.
- * Format:  EXCHANGE|TOKEN  e.g. NSE_FO|43919
- *
- * @param {object} signal - Parsed signal object
- * @returns {string}
- */
-function buildInstrumentToken(signal) {
-  const sym = (signal.symbol || '').toUpperCase().trim();
-
-  if (signal.instrument_type === 'OPTION') {
-    // e.g. NSE_FO|NIFTY24500CE  — replace with real numeric key in production
-    return `NSE_FO|${sym}${signal.strike_price}${signal.option_type}`;
-  }
-
-  if (signal.instrument_type === 'FUTURE') {
-    return `NSE_FO|${sym}FUT`;
-  }
-
-  // EQ — equity
-  return `NSE_EQ|${sym}`;
-}
-
-// ─────────────────────────────────────────────────────────────
 // 1. PLACE ORDER  — POST /v3/order/place
 // ─────────────────────────────────────────────────────────────
 /**
@@ -507,14 +475,25 @@ async function convertPosition({ instrumentToken, transactionType, oldProduct, n
   const res = await stdClient.put('/v2/portfolio/convert-position', payload);
   return res.data;
 }
+// ─────────────────────────────────────────────────────────────
+// 17. GET MARKET DATA AUTH URL — GET /v2/feed/market-data-feed/authorize
+// ─────────────────────────────────────────────────────────────
+/**
+ * Authorizes and returns a WebSocket URL for market data feed.
+ * Docs: https://upstox.com/developer/api-documentation/market-data-feed-v3-websocket
+ *
+ * @returns {Promise<string>} Authorized WebSocket URL
+ */
+async function getMarketDataAuthUrl() {
+  logger.info('[Upstox] getMarketDataAuthUrl → Requesting WS auth');
+  const res = await stdClient.get('/v2/feed/market-data-feed/authorize');
+  return res.data?.data?.authorized_redirect_url;
+}
 
 // ─────────────────────────────────────────────────────────────
 // EXPORTS
 // ─────────────────────────────────────────────────────────────
 module.exports = {
-  // Token utils
-  buildInstrumentToken,
-
   // Order management
   placeOrder,
   modifyOrder,
@@ -536,4 +515,5 @@ module.exports = {
   getTradesByOrder,
   getAllTrades,
   getFundsAndMargin,
+  getMarketDataAuthUrl,
 };

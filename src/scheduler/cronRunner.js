@@ -6,8 +6,10 @@ const logger = require('../utils/logger');
 const { fetchLatestMessages, getMessageHistory } = require('../telegram/telegramClient');
 const { analyzeTradingSignal } = require('../llm/llmClient');
 const { parseSignal } = require('../llm/signalParser');
-const { executeSignal } = require('../trading/tradeEngine');
+const { executeSignal, handleExitPosition } = require('../trading/tradeEngine');
 const { tradeStateManager } = require('../memory/tradeStateManager');
+const { checkLiveHardStop } = require('../trading/riskManager');
+const marketData = require('../trading/marketDataManager');
 
 /**
  * cronRunner.js
@@ -35,6 +37,21 @@ async function runPipeline() {
   logger.info(`[Cron] ▶ Pipeline run started (runId: ${runId})`);
 
   try {
+    // ── Pre-Step: Live Hard Stop Check ───────────────────────────
+    const hardStop = checkLiveHardStop();
+    if (hardStop.breach) {
+      logger.error(`[Cron] 🚨 LIVE HARD STOP BREACHED! PnL: ₹${hardStop.totalPnL.toFixed(2)} | Limit: ₹${hardStop.limit}`);
+      
+      const activeTrades = tradeStateManager.getActiveTrades();
+      if (activeTrades.length > 0) {
+        logger.info(`[Cron] Exiting ${activeTrades.length} positions due to hard stop...`);
+        for (const trade of activeTrades) {
+          await handleExitPosition({ symbol: trade.symbol }, trade.tradeKey, 'HARD_STOP_LIMIT');
+        }
+      }
+      return;
+    }
+
     // ── Step 1: Fetch Telegram messages ──────────────────────────
     const { newMessages, allMessages } = await fetchLatestMessages(20);
 
@@ -112,6 +129,9 @@ function startCronJobs() {
   cron.schedule(cronExpression, async () => {
     await runPipeline();
   });
+
+  // Start Live Market Data Feed
+  marketData.connect().catch(err => logger.error(`[MarketData] Init failed: ${err.message}`));
 
   // Run immediately on startup
   logger.info('[Cron] Running pipeline immediately on startup...');
